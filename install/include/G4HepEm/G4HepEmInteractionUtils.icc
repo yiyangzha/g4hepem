@@ -1,0 +1,77 @@
+#include "ad_type.h"
+
+#include "G4HepEmInteractionUtils.hh"
+
+#include "G4HepEmRandomEngine.hh"
+#include "G4HepEmConstants.hh"
+#include "G4HepEmMath.hh"
+
+#include <cmath>
+
+G4HepEmHostDevice
+G4double SampleCostModifiedTsai(const G4double thePrimEkin, G4HepEmRandomEngine* rnge) {
+  // sample photon direction (modified Tsai sampling):
+  const G4double uMax = 2.0*(1.0 + thePrimEkin*kInvElectronMassC2);
+  G4double rndm3[3];
+  G4double u;
+  do {
+    rnge->flatArray(3, rndm3);
+    const G4double uu = -G4HepEmLog(rndm3[0]*rndm3[1]);
+    u = (0.25 > rndm3[2]) ? (G4double)(uu*1.6) : (G4double)(uu*0.533333333);
+  } while (u > uMax);
+  // cost = 1.0 - 2.0*u*u/(uMax*uMax);
+  return 1.0 - 2.0*u*u/(uMax*uMax);
+}
+
+// times = 1.0 for Brem and -1.0 for Pair production
+// densityCor = 0.0  for Pair production
+G4HepEmHostDevice
+void EvaluateLPMFunctions(G4double& funcXiS, G4double& funcGS, G4double& funcPhiS, const G4double egamma,
+     const G4double etotal, const G4double elpm, const G4double z23, const G4double ilVarS1,
+     const G4double ilVarS1Cond, const G4double densityCor, const G4double times) {
+  const G4double     sqrt2 = 1.414213562373095;
+  const G4double redegamma = egamma / etotal;
+  const G4double varSprime = std::sqrt( 0.125 * redegamma * elpm / ( times*( 1.0 - redegamma ) * etotal ) );
+  const G4double     varS1 = z23 / ( 184.15 * 184.15 );
+  const G4double condition = sqrt2*varS1;
+  G4double funcXiSprime = 2.0;
+  if (varSprime > 1.0) {
+    funcXiSprime = 1.0;
+  } else if (varSprime > condition) {
+    const G4double funcHSprime = G4HepEmLog(varSprime)*ilVarS1Cond;
+    funcXiSprime = 1.0 + funcHSprime - 0.08*(1.0-funcHSprime)*funcHSprime*(2.0-funcHSprime)*ilVarS1Cond;
+  }
+  funcXiS = funcXiSprime;
+  const G4double    varS = varSprime / std::sqrt( funcXiSprime );
+  // - include dielectric suppression effect into s according to Migdal (only in case of Brem !)
+  G4double varShat = varS;
+  if (densityCor != 0.0) {
+    varShat *= ( 1.0 + densityCor / (egamma*egamma) );
+    funcXiS = 2.0;
+    if (varShat > 1.0) {
+      funcXiS = 1.0;
+    } else if (varShat > varS1) {
+      funcXiS = 1.0 + G4HepEmLog ( varShat ) * ilVarS1;
+    }
+  }
+  // avluate the LPM G(s) and Phi(s) function (approximations) at s = s-hat
+  const G4double lpmSLimit =  2.0;
+  const G4double lpmISDelt = 20.0;
+  if (varShat < lpmSLimit) {
+    G4double  val = varShat*lpmISDelt;
+    int    ilow = (int)GET_VALUE(val);
+    val        -= ilow;
+    ilow       *= 2;
+    funcGS      = ( kFuncLPM[ilow+2] - kFuncLPM[ilow]   ) * val + kFuncLPM[ilow];
+    funcPhiS    = ( kFuncLPM[ilow+3] - kFuncLPM[ilow+1] ) * val + kFuncLPM[ilow+1];
+  } else {
+    G4double ss = 1.0/(varShat*varShat);
+    ss *= ss;
+    funcGS   = 1.0-0.0230655*ss;
+    funcPhiS = 1.0-0.01190476*ss;
+  }
+  //MAKE SURE SUPPRESSION IS SMALLER THAN 1: due to Migdal's approximation on xi
+  if (funcXiS*funcPhiS > 1.0 || varShat > 0.57) {
+    funcXiS = 1.0/funcPhiS;
+  }
+}
