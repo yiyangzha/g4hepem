@@ -22,6 +22,8 @@ public:
   G4HepEmMSCTrackData(const G4HepEmMSCTrackData& o) {
     fLambtr1              = o.fLambtr1;
 
+    gStepLength_no_dot    = o.gStepLength_no_dot; //FIX
+
     fTrueStepLength       = o.fTrueStepLength;
     fZPathLength          = o.fZPathLength;
     fDisplacement[0]      = o.fDisplacement[0];
@@ -69,6 +71,8 @@ public:
   void ReSet() {
     fLambtr1              = 0.;
 
+    gStepLength_no_dot    = 0.;  //FIX
+
     fTrueStepLength       = 0.;
     fZPathLength          = 0.;
     fDisplacement[0]      = 0.;
@@ -94,6 +98,8 @@ public:
 
 public:
   G4double fLambtr1;            // first transport mfp
+
+  G4double gStepLength_no_dot;  // FIX
 
   G4double fTrueStepLength;     // the true, i.e. physical step Length
   G4double fZPathLength;        // projection of the transport distance along the org. dir.
