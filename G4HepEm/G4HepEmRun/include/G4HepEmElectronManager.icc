@@ -27,8 +27,8 @@
 
 // tlData GetPrimaryElectronTrack needs to be set needs to be set based on the G4Track;
 
-#define NOMSC
-#define NOFLUCTUATION
+//#define NOMSC
+//#define NOFLUCTUATION
 
 
 // Note: pStepLength will be set here i.e. this is the first access to it that
@@ -201,7 +201,11 @@ void G4HepEmElectronManager::UpdatePStepLength(G4HepEmElectronTrack* theElTrack)
 }
 
 void G4HepEmElectronManager::UpdateNumIALeft(G4HepEmElectronTrack* theElTrack) {
-  const G4double pStepLength = theElTrack->GetPStepLength();
+  G4double pStepLength = theElTrack->GetPStepLength();  //FIX const 
+  if (theElTrack->GetMSCTrackData()->fTrueStepLength_no_dot_set && theElTrack->GetMSCTrackData()->fIsActive) //FIX
+  {
+    pStepLength = theElTrack->GetMSCTrackData()->fTrueStepLength_no_dot;
+  }
   G4HepEmTrack*   theTrack = theElTrack->GetTrack();
   G4double*    numInterALeft = theTrack->GetNumIALeft();
   G4double*       preStepMFP = theTrack->GetMFP();
@@ -212,6 +216,11 @@ void G4HepEmElectronManager::UpdateNumIALeft(G4HepEmElectronTrack* theElTrack) {
 
 bool G4HepEmElectronManager::ApplyMeanEnergyLoss(struct G4HepEmData* hepEmData, struct G4HepEmParameters* hepEmPars, G4HepEmElectronTrack* theElTrack) {
   const G4double pStepLength = theElTrack->GetPStepLength();
+  G4double pStepLength_no_dot = pStepLength; //FIX
+  if (theElTrack->GetMSCTrackData()->fTrueStepLength_no_dot_set && theElTrack->GetMSCTrackData()->fIsActive) //FIX
+  {
+    pStepLength_no_dot = theElTrack->GetMSCTrackData()->fTrueStepLength_no_dot;
+  }
 
   G4HepEmTrack* theTrack = theElTrack->GetTrack();
   const bool  isElectron = (theTrack->GetCharge() < 0.0);
@@ -236,7 +245,7 @@ bool G4HepEmElectronManager::ApplyMeanEnergyLoss(struct G4HepEmData* hepEmData, 
   G4double eloss = pStepLength*GetRestDEDX(elData, theIMC, theEkin, theLEkin);
   // 2. use integral if linear energy loss is over the limit fraction
   if (eloss > theEkin*hepEmPars->fLinELossLimit) {
-    const G4double postStepRange = theRange - pStepLength;
+    const G4double postStepRange = theRange - pStepLength_no_dot;  //FIX
     eloss = theEkin - GetInvRange(elData, theIMC, postStepRange);
   }
   eloss = G4HepEmMax(eloss, 0.0);
@@ -388,8 +397,10 @@ bool G4HepEmElectronManager::PerformContinuous(struct G4HepEmData* hepEmData, st
     return true;
   }
 
+  theElTrack->GetMSCTrackData()->fTrueStepLength_no_dot_set = false;  //FIX
+
   // === 4. Sample MSC direction change and displacement.
-  SampleMSC(hepEmData, hepEmPars, theElTrack, rnge);
+  SampleMSC(hepEmData, hepEmPars, theElTrack, rnge);  //FIX
 
   // === 5. Sample loss fluctuations.
   return SampleLossFluctuations(hepEmData, hepEmPars, theElTrack, rnge);

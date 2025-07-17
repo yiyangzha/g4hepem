@@ -80,6 +80,11 @@ void G4HepEmElectronInteractionUMSC::StepLimit(G4HepEmData* hepEmData, G4HepEmPa
     const G4double dum0 = tlimit > tlimitmin
                         ? (G4double)G4HepEmMax(rnge->Gauss(tlimit, 0.1*(tlimit - tlimitmin)), tlimitmin)
                         : tlimitmin;
+    if(range > presafety && tlimit == hepEmPars->fMSCSafetyFactor*presafety && tlimit > tlimitmin) //FIX
+    {
+      mscData->fTrueStepLength_no_dot = G4HepEmMin((G4double)G4HepEmMax(rnge->Gauss(GET_VALUE(tlimit), 0.1*(tlimit - tlimitmin)), tlimitmin), mscData->fTrueStepLength);
+      mscData->fTrueStepLength_no_dot_set = true;
+    } 
     mscData->fTrueStepLength = G4HepEmMin(dum0, mscData->fTrueStepLength);
   }
   // msc step limit is done!
